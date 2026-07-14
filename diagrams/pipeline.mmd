@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph Fonte["Fonte de dados"]
+        BD[(Base dos Dados<br/>BigQuery publico)]
+    end
+
+    subgraph GCP["GCP - BigQuery sandbox"]
+        EXT[Extracao batch<br/>SELECT por entidade<br/>export CSV]
+    end
+
+    subgraph EV["Simulacao de eventos"]
+        GER[Gerador de eventos<br/>JSON por medicao]
+    end
+
+    subgraph DBX["Databricks Free Edition - Delta Lake"]
+        direction TB
+        BRZ[Bronze<br/>dados brutos + metadado]
+        SLV[Silver<br/>limpeza, tipos, chaves<br/>integracao das 6 entidades]
+        GLD[Gold<br/>indicador por municipio<br/>meta vs resultado<br/>evolucao temporal]
+        STR[Auto Loader<br/>streaming micro-batch]
+        QLD[Qualidade<br/>duplicidade, ausentes<br/>chaves, consistencia]
+    end
+
+    subgraph Consumo["Consumo"]
+        DASH[Dashboards]
+        ML[Modelos de ML]
+        POL[Politicas publicas]
+    end
+
+    BD --> EXT --> BRZ
+    GER --> STR --> BRZ
+    BRZ --> SLV --> GLD
+    SLV -. valida .-> QLD
+    GLD --> DASH
+    GLD --> ML
+    GLD --> POL

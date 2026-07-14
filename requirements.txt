@@ -1,0 +1,7 @@
+# Ambiente local de extração (o processamento pesado roda no Databricks Serverless).
+# Versões fixadas no que testei; se precisar subir, o gargalo costuma ser o pyarrow.
+google-cloud-bigquery==3.25.0
+google-cloud-bigquery-storage==2.27.0
+db-dtypes==1.3.0
+pandas==2.2.2
+pyarrow==17.0.0

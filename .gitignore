@@ -1,0 +1,28 @@
+# credenciais e chaves (nunca versionar)
+*.json
+!data/sample/*.json
+service-account*.json
+.env
+.env.*
+
+# dados pesados: só amostra vai pro git
+data/raw/
+data/bronze/
+data/silver/
+data/gold/
+*.parquet
+!data/sample/*.parquet
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# databricks
+.databricks/
+
+# sistema
+.DS_Store
+Thumbs.db
