@@ -26,3 +26,6 @@ venv/
 # sistema
 .DS_Store
 Thumbs.db
+
+# notas de planejamento pessoal, nunca vai pro repositorio publico
+PLANO_TECH_CHALLENGE_FASE2.md

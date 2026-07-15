@@ -59,21 +59,21 @@ flowchart LR
 
 ## Descrição da arquitetura da solução
 
-A pipeline segue a Arquitetura Medalhão, com três camadas de responsabilidade bem separada.
+A pipeline segue a Arquitetura Medalhão, com três camadas de responsabilidade separada.
 
-A camada Bronze guarda o dado como ele chegou. Não limpo nem renomeio nada aqui; só acrescento metadado de ingestão (origem e timestamp), para conseguir auditar e reprocessar. É o histórico bruto, gravado em Delta.
+Na Bronze o dado fica exatamente como chegou. Não limpo nem renomeio nada, só acrescento metadado de ingestão (origem e timestamp) pra poder auditar e reprocessar depois se precisar. É o histórico bruto, gravado em Delta.
 
-A camada Silver é onde o dado vira confiável. Padronizo nomes de coluna para snake_case sem acento, forço os tipos corretos, normalizo as chaves de município (código IBGE de 7 dígitos, tratado como string por causa do zero à esquerda) e de UF, trato ausentes e duplicatas, e faço a integração das seis entidades num modelo único na granularidade município-ano. É a etapa que transforma seis tabelas soltas numa base coerente.
+A Silver é onde o dado vira confiável: padronizo nome de coluna pra snake_case sem acento, forço os tipos certos, normalizo as chaves de município (código IBGE de 7 dígitos tratado como string, por causa do zero à esquerda) e de UF, trato ausentes e duplicatas, e integro as seis entidades num modelo único na granularidade município-ano. É a etapa que transforma seis tabelas soltas numa base coerente.
 
-A camada Gold é o produto final. São três datasets: o indicador de alfabetização por município na medição mais recente, a comparação entre meta e resultado (com o gap para a meta), e a evolução temporal do indicador com variação ano a ano. Tudo particionado por ano e pronto para consumo.
+Na Gold saem três datasets prontos pra consumo, particionados por ano: o indicador de alfabetização por município na medição mais recente, a comparação entre meta e resultado com o gap calculado, e a evolução temporal com variação ano a ano.
 
 ## Fluxo de dados
 
-O caminho batch começa no BigQuery. O script de extração roda uma query por entidade no sandbox, seleciona apenas as colunas necessárias e salva cada uma como CSV. Esses arquivos sobem para um Volume do Databricks. O notebook de Bronze lê os CSV e materializa as tabelas Delta brutas. O notebook de Silver lê a Bronze, aplica as transformações, integra as bases e grava a visão município-ano. O notebook de Gold lê a Silver e gera os três produtos analíticos.
+O caminho batch começa no BigQuery: uma query por entidade no sandbox, só com as colunas necessárias, exportada como CSV. Esses arquivos sobem pra um Volume do Databricks, onde o notebook de Bronze materializa as tabelas Delta brutas. Dali a Silver aplica as transformações e integra as bases na visão município-ano, e a Gold lê a Silver e gera os produtos analíticos.
 
-O caminho streaming roda em paralelo. Um gerador escreve eventos JSON (novas medições de indicador) numa pasta monitorada. O Auto Loader consome esses arquivos em micro-batches e grava numa tabela de streaming na Bronze, com checkpoint para garantir que cada arquivo é processado uma vez só. Isso mostra que a mesma arquitetura absorve os dois modos de ingestão sem duplicar lógica.
+Em paralelo roda o streaming: um gerador escreve eventos JSON (novas medições de indicador) numa pasta monitorada, e o Auto Loader consome esses arquivos em micro-batches, gravando numa tabela de streaming na Bronze com checkpoint, o que garante que cada arquivo seja processado uma única vez. É a prova de que a mesma arquitetura aguenta os dois ritmos de ingestão sem duplicar lógica.
 
-Entre a Silver e a Gold roda o script de qualidade, que valida a base integrada e registra o resultado numa tabela de qualidade versionada.
+Entre Silver e Gold roda o script de qualidade, validando a base integrada e registrando o resultado numa tabela versionada.
 
 ## Tecnologias utilizadas e justificativa
 
@@ -97,7 +97,7 @@ Auto Loader no lugar de Kafka. Kafka foi o que estudamos em ETL Pipelines e reso
 
 ## Monitoramento e FinOps
 
-Monitoramento. A observabilidade aqui se apoia em três coisas. O checkpoint do Auto Loader dá rastreabilidade do que já foi ingerido e detecta reprocessamento indevido. A tabela de qualidade guarda o resultado de cada execução das validações, então dá para acompanhar a saúde da base ao longo do tempo e disparar alerta quando um teste passa de ok para alerta. E os metadados de ingestão na Bronze permitem responder de onde e quando cada linha entrou, que é o primeiro dado que se procura quando algo falha. Num passo seguinte, esses sinais alimentariam um painel de falhas de ingestão, latência e volume processado.
+Monitoramento. Não montei um painel de observabilidade dedicado, mas a base pra isso já existe em três pontos do pipeline: o checkpoint do Auto Loader rastreia o que já foi ingerido e evita reprocessamento indevido; a tabela de qualidade guarda o resultado de cada execução das validações, então dá pra acompanhar a saúde da base ao longo do tempo; e o metadado de ingestão na Bronze (de onde e quando cada linha entrou) é o primeiro lugar que se olha quando algo falha. O próximo passo natural seria juntar esses três sinais num painel único de falhas de ingestão, latência e volume processado.
 
 FinOps. A arquitetura foi desenhada para custar o mínimo. As decisões que reduzem custo operacional: armazenamento em Parquet e Delta, que comprime e evita reprocessamento; particionamento por ano na Gold, que corta a varredura das queries; seleção de colunas já na extração do BigQuery, que mantém o consumo dentro do 1 TB gratuito do sandbox; compute Serverless sob demanda no Databricks Free, sem cluster ocioso; e o streaming em modo `availableNow`, que processa em rajada e para, em vez de manter processamento contínuo. Numa hipótese de migração para ambiente pago, o mesmo desenho seguiria barato, porque o gasto acompanharia o dado processado e não um cluster ligado o tempo todo.
 
@@ -140,7 +140,7 @@ Para política pública baseada em dados, o gap entre meta e resultado, cruzado 
 
 Dataset público no BigQuery: `basedosdados.br_inep_avaliacao_alfabetizacao`. As seis entidades do enunciado são as tabelas `uf`, `municipio`, `alunos`, `meta_alfabetizacao_brasil`, `meta_alfabetizacao_uf` e `meta_alfabetizacao_municipio`.
 
-Duas decisões valem registro. O indicador já vem calculado na coluna `taxa_alfabetizacao` (nível município e UF), então a camada analítica usa esse valor direto em vez de derivar do corte de 743 pontos do Saeb sobre o microdado.
+Duas decisões técnicas importantes ficam registradas aqui. O indicador já vem calculado na coluna `taxa_alfabetizacao` (nível município e UF), então a camada analítica usa esse valor direto em vez de derivar do corte de 743 pontos do Saeb sobre o microdado.
 
 A coluna `rede` vem codificada nos indicadores (0 Total, 1 Federal, 2 Estadual, 3 Municipal, 4 Privada, 5 Pública Estadual e Municipal, 6 Pública Federal Estadual e Municipal) e como texto nas tabelas de meta. O filtro inicial usou `rede = 0` (Total), mas checando a distribuição real esse corte está praticamente vazio nos indicadores: 1 linha em toda a tabela `uf` e 398 município de cerca de 5.570 em `municipio`. A extração final usa `rede = 5` (Pública Estadual e Municipal) para `uf`, com cobertura de 25 das 27 UFs por ano, e `rede = 3` (Municipal) para `municipio`, com 5.448 município por ano (cerca de 98% do total). Essa escolha também bate com o que as próprias tabelas de meta usam: `meta_alfabetizacao_municipio` guarda a rede como texto `"Municipal"` e `meta_alfabetizacao_uf`/`meta_alfabetizacao_brasil` guardam `"Pública"` (código 6 nem aparece na base, então o correspondente é o 5). Com isso o indicador e a meta comparam a mesma rede, sem precisar de ressalva de comparabilidade. A tabela de alunos entra como amostra, para demonstrar ingestão de microdado sem processar milhões de linhas.
 
@@ -167,15 +167,3 @@ Pré-requisitos: uma conta Google com BigQuery em modo sandbox e uma conta Datab
 ## Vídeo executivo
 
 [Assista no Loom](https://www.loom.com/share/f899661f78cf4c8a88e898671f626f0f)
-
-## Checklist final antes da entrega
-
-- [x] Base dos Dados usado como fonte, via BigQuery.
-- [x] Camadas Bronze, Silver e Gold implementadas, com integração na Silver.
-- [x] Ingestão batch e streaming (simulado) presentes e validadas (50 eventos consumidos via Auto Loader).
-- [x] Scripts de qualidade de dados rodando e documentados (6 checagens, 0 alertas).
-- [x] Solução em nuvem (GCP BigQuery + Databricks Free Edition).
-- [x] README completo com diagrama, fluxo, trade-offs, FinOps e aplicação em IA.
-- [x] Git com histórico de commits, branches por funcionalidade e seis PRs mergeadas na main.
-- [x] Vídeo executivo gravado e link acima.
-- [ ] Repositório público e link enviado na plataforma FIAP.
