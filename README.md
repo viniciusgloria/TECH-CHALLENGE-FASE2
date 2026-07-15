@@ -166,16 +166,16 @@ Pré-requisitos: uma conta Google com BigQuery em modo sandbox e uma conta Datab
 
 ## Vídeo executivo
 
-[link a inserir após a gravação]
+[Assista no Loom](https://www.loom.com/share/f899661f78cf4c8a88e898671f626f0f)
 
 ## Checklist final antes da entrega
 
 - [x] Base dos Dados usado como fonte, via BigQuery.
 - [x] Camadas Bronze, Silver e Gold implementadas, com integração na Silver.
-- [ ] Ingestão batch e streaming (simulado) presentes e validadas.
-- [ ] Scripts de qualidade de dados rodando e documentados.
+- [x] Ingestão batch e streaming (simulado) presentes e validadas (50 eventos consumidos via Auto Loader).
+- [x] Scripts de qualidade de dados rodando e documentados (6 checagens, 0 alertas).
 - [x] Solução em nuvem (GCP BigQuery + Databricks Free Edition).
 - [x] README completo com diagrama, fluxo, trade-offs, FinOps e aplicação em IA.
-- [ ] Git com histórico de commits, branches por funcionalidade e ao menos uma PR para a main.
-- [ ] Vídeo executivo gravado e link acima.
+- [x] Git com histórico de commits, branches por funcionalidade e seis PRs mergeadas na main.
+- [x] Vídeo executivo gravado e link acima.
 - [ ] Repositório público e link enviado na plataforma FIAP.
